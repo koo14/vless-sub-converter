@@ -19,8 +19,8 @@
                 <input type="url" id="subUrl" class="block w-full border border-gray-600 bg-gray-700 text-white rounded-md shadow-sm p-2.5 focus:ring-blue-500 focus:border-blue-500 placeholder-gray-400 outline-none" placeholder="https://xx.yy.zz:2096/subs/xxx">
             </div>
             <div>
-                <label class="block text-sm font-medium text-gray-300 mb-1">目标 IP 列表 (多个请用逗号分隔)</label>
-                <input type="text" id="newIp" class="block w-full border border-gray-600 bg-gray-700 text-white rounded-md shadow-sm p-2.5 focus:ring-blue-500 focus:border-blue-500 placeholder-gray-400 outline-none" placeholder="1.1.1.1, 2.2.2.2">
+                <label class="block text-sm font-medium text-gray-300 mb-1">目标 IP 列表 (多个请用逗号或换行分隔)</label>
+                <textarea id="newIp" rows="3" class="block w-full border border-gray-600 bg-gray-700 text-white rounded-md shadow-sm p-2.5 focus:ring-blue-500 focus:border-blue-500 placeholder-gray-400 outline-none resize-y" placeholder="1.1.1.1, 2.2.2.2&#10;或者每行一个 IP"></textarea>
             </div>
             <button id="genBtn" onclick="generate()" class="w-full bg-blue-600 text-white font-medium p-2.5 rounded-md hover:bg-blue-700 transition duration-150">生成新订阅链接</button>
         </div>
@@ -48,7 +48,7 @@
             btn.classList.add('opacity-75', 'cursor-not-allowed');
 
             try {
-                const ipList = ip.split(',').map(i => i.trim()).filter(Boolean);
+                const ipList = ip.split(/[,\n]/).map(i => i.trim()).filter(Boolean);
                 const linksContainer = document.getElementById('linksContainer');
                 linksContainer.innerHTML = ''; // 清空之前生成的结果
 

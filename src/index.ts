@@ -8,7 +8,7 @@ interface SubConfig {
   ip: string;
 }
 
-export default {
+const worker = {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
 
@@ -47,6 +47,13 @@ export default {
     return new Response("Not Found", { status: 404 });
   },
 };
+
+export default worker;
+
+// 兼容 Cloudflare Pages Functions 的入口
+export async function onRequest(context: any): Promise<Response> {
+  return await worker.fetch(context.request, context.env, context);
+}
 
 /**
  * 获取并处理远端订阅链接
