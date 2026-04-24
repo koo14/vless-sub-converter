@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VLESS 订阅转换器</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-900 text-gray-200 min-h-screen flex items-center justify-center p-4">
+    <div class="bg-gray-800 p-8 rounded-xl shadow-2xl border border-gray-700 w-full max-w-lg">
+        <h1 class="text-2xl font-bold mb-2 text-white text-center">VLESS 优选 IP 订阅转换器</h1>
+        <p class="text-sm text-gray-400 mb-6 text-center">
+            将订阅节点中的域名无缝替换为您优选的 IP 列表 (无需存储，纯静态转换)
+        </p>
+        
+        <div class="space-y-5">
+            <div>
+                <label class="block text-sm font-medium text-gray-300 mb-1">原始 VLESS 订阅链接</label>
+                <input type="url" id="subUrl" class="block w-full border border-gray-600 bg-gray-700 text-white rounded-md shadow-sm p-2.5 focus:ring-blue-500 focus:border-blue-500 placeholder-gray-400 outline-none" placeholder="https://xx.yy.zz:2096/subs/xxx">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-300 mb-1">目标 IP 列表 (多个请用逗号分隔)</label>
+                <input type="text" id="newIp" class="block w-full border border-gray-600 bg-gray-700 text-white rounded-md shadow-sm p-2.5 focus:ring-blue-500 focus:border-blue-500 placeholder-gray-400 outline-none" placeholder="1.1.1.1, 2.2.2.2">
+            </div>
+            <button id="genBtn" onclick="generate()" class="w-full bg-blue-600 text-white font-medium p-2.5 rounded-md hover:bg-blue-700 transition duration-150">生成新订阅链接</button>
+        </div>
+
+        <div id="result" class="mt-8 hidden">
+            <div class="border-t border-gray-700 pt-6" id="linksContainer">
+                <!-- 这里将通过 JS 动态插入生成的链接 -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function generate() {
+            const subUrl = document.getElementById('subUrl').value.trim();
+            const ip = document.getElementById('newIp').value.trim();
+            const btn = document.getElementById('genBtn');
+            
+            if (!subUrl || !ip) {
+                alert('请填写完整的订阅链接和目标 IP！');
+                return;
+            }
+
+            btn.innerText = '正在生成...';
+            btn.disabled = true;
+            btn.classList.add('opacity-75', 'cursor-not-allowed');
+
+            try {
+                const ipList = ip.split(',').map(i => i.trim()).filter(Boolean);
+                const linksContainer = document.getElementById('linksContainer');
+                linksContainer.innerHTML = ''; // 清空之前生成的结果
+
+                // 1. 如果有多个 IP，生成包含所有 IP 的统一链接 (轮询分配)
+                if (ipList.length > 1) {
+                    const unifiedUrl = window.location.origin + '/sub?url=' + encodeURIComponent(subUrl) + '&ips=' + encodeURIComponent(ipList.join(','));
+                    linksContainer.innerHTML += createLinkHTML('🌟 包含所有 IP 的统一订阅链接 (轮询分配)：', unifiedUrl, 'unified');
+                }
+
+                // 2. 为每个 IP 生成单独的专属订阅链接
+                ipList.forEach((singleIp, index) => {
+                    const singleUrl = window.location.origin + '/sub?url=' + encodeURIComponent(subUrl) + '&ips=' + encodeURIComponent(singleIp);
+                    const title = ipList.length > 1 ? `🎯 单独优选 IP (${singleIp}) 订阅链接：` : `🎉 您的二次订阅链接：`;
+                    linksContainer.innerHTML += createLinkHTML(title, singleUrl, `single_${index}`);
+                });
+
+                document.getElementById('result').classList.remove('hidden');
+            } catch (error) {
+                alert('生成失败: ' + error.message);
+            } finally {
+                btn.innerText = '生成新订阅链接';
+                btn.disabled = false;
+                btn.classList.remove('opacity-75', 'cursor-not-allowed');
+            }
+        }
+
+        // 辅助函数：生成单条链接的 HTML 结构
+        function createLinkHTML(title, url, idPrefix) {
+            return `
+                <div class="mb-4">
+                    <label class="block text-sm font-bold text-gray-200 mb-2">${title}</label>
+                    <div class="flex">
+                        <input type="text" id="url_${idPrefix}" value="${url}" readonly class="block w-full border border-gray-600 rounded-l-md shadow-sm p-2 bg-gray-900 text-gray-300 outline-none text-sm focus:ring-blue-500 focus:border-blue-500">
+                        <button onclick="copyUrl('url_${idPrefix}')" class="bg-emerald-500 text-white px-5 rounded-r-md hover:bg-emerald-600 transition font-medium whitespace-nowrap">复制</button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function copyUrl(elementId) {
+            const urlInput = document.getElementById(elementId);
+            urlInput.select();
+            urlInput.setSelectionRange(0, 99999);
+            document.execCommand('copy');
+            alert('复制成功！您可以将其粘贴到 V2Ray 等客户端中。');
+        }
+    </script>
+</body>
+</html>

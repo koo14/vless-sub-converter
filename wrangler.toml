@@ -1,0 +1,7 @@
+name = "vless-sub-converter"
+main = "src/index.ts"
+compatibility_date = "2026-04-21"
+
+[[rules]]
+type = "Text"
+globs = ["**/*.html"]
