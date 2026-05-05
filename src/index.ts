@@ -22,15 +22,15 @@ const worker = {
     // 2. 匹配 `/sub` 路径，直接从 URL 查询参数读取
     if (url.pathname === "/sub" || url.pathname === "/sub/") {
       const subUrl = url.searchParams.get("url");
-      const ip = url.searchParams.get("ips"); // 这里现在可以接收到诸如 "1.1.1.1, 2.2.2.2" 的列表
+      const targets = url.searchParams.get("ips"); // 现在接收 IP 或域名列表
       try {
 
-        if (!subUrl || !ip) {
+        if (!subUrl || !targets) {
           return new Response("缺少 url 或 ips 参数", { status: 400 });
         }
 
         // 获取并转换订阅内容
-        const modifiedSub = await processSubscription(subUrl, ip);
+        const modifiedSub = await processSubscription(subUrl, targets);
 
         return new Response(modifiedSub, {
           headers: {
@@ -58,7 +58,7 @@ export async function onRequest(context: any): Promise<Response> {
 /**
  * 获取并处理远端订阅链接
  */
-async function processSubscription(url: string, newIp: string): Promise<string> {
+async function processSubscription(url: string, targetList: string): Promise<string> {
   const response = await fetch(url, {
     headers: {
       "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) VLESS-Converter",
@@ -82,10 +82,10 @@ async function processSubscription(url: string, newIp: string): Promise<string> 
     }
   }
 
-  // 将传入的逗号分隔的 IP 字符串转换为数组，清理空格并过滤空值
-  const ipArray = newIp.split(',').map(ip => ip.trim()).filter(Boolean);
-  if (ipArray.length === 0) {
-    throw new Error("没有提供有效的目标 IP");
+  // 将传入的逗号分隔的字符串转换为数组，清理空格并过滤空值
+  const targets = targetList.split(',').map(t => t.trim()).filter(Boolean);
+  if (targets.length === 0) {
+    throw new Error("没有提供有效的目标 IP 或域名");
   }
 
   // 按行分割并处理每一个节点
@@ -98,8 +98,8 @@ async function processSubscription(url: string, newIp: string): Promise<string> 
       // 匹配 VLESS 协议: vless://[uuid]@[host]:[port][...]
       const match = line.match(/^(vless:\/\/[^@]+@)(.+?)(:\d+.*)$/i);
       if (match) {
-        // 针对当前节点，遍历所有优选 IP，生成多条节点配置
-        return ipArray.map(ip => {
+        // 针对当前 node，遍历所有目标，生成多条配置
+        return targets.map(target => {
           let rest = match[3];
           const hashIndex = rest.indexOf('#');
           let newRest = rest;
@@ -107,14 +107,14 @@ async function processSubscription(url: string, newIp: string): Promise<string> 
           if (hashIndex !== -1) {
             try {
               const originalRemark = decodeURIComponent(rest.substring(hashIndex + 1));
-              newRest = rest.substring(0, hashIndex) + '#' + encodeURIComponent(`${originalRemark} - ${ip}`);
+              newRest = rest.substring(0, hashIndex) + '#' + encodeURIComponent(`${originalRemark} - ${target}`);
             } catch (e) {
-              newRest = rest + encodeURIComponent(` - ${ip}`);
+              newRest = rest + encodeURIComponent(` - ${target}`);
             }
           } else {
-            newRest = rest + '#' + encodeURIComponent(ip);
+            newRest = rest + '#' + encodeURIComponent(target);
           }
-          return match[1] + ip + newRest;
+          return match[1] + target + newRest;
         });
       }
     }
