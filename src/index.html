@@ -22,6 +22,7 @@
             <div>
                 <label class="block text-sm font-medium text-gray-300 mb-1">目标 IP/域名 列表 (多个请用逗号或换行分隔)</label>
                 <textarea id="newIp" rows="3" oninput="generate()" class="block w-full border border-gray-600 bg-gray-700 text-white rounded-md shadow-sm p-2.5 focus:ring-blue-500 focus:border-blue-500 placeholder-gray-400 outline-none resize-y" placeholder="1.1.1.1, example.com&#10;或者每行一个"></textarea>
+                <p id="errorMsg" class="mt-2 text-xs text-red-400 hidden"></p>
             </div>
         </div>
 
@@ -70,9 +71,11 @@
             const subUrl = document.getElementById('subUrl').value.trim();
             const ip = document.getElementById('newIp').value.trim();
             const resultDiv = document.getElementById('result');
+            const errorMsg = document.getElementById('errorMsg');
             
             if (!subUrl || !ip) {
                 resultDiv.classList.add('hidden');
+                errorMsg.classList.add('hidden');
                 return;
             }
 
@@ -82,7 +85,24 @@
 
             try {
                 const rawList = ip.split(/[,\n]/).map(i => i.trim()).filter(Boolean);
-                const validList = rawList.filter(isValid);
+                const validList = [];
+                const invalidList = [];
+
+                rawList.forEach(item => {
+                    if (isValid(item)) {
+                        validList.push(item);
+                    } else {
+                        invalidList.push(item);
+                    }
+                });
+
+                // 显示非法输入提示
+                if (invalidList.length > 0) {
+                    errorMsg.innerText = `⚠️ 以下输入无效并将被忽略: ${invalidList.join(', ')}`;
+                    errorMsg.classList.remove('hidden');
+                } else {
+                    errorMsg.classList.add('hidden');
+                }
                 
                 if (validList.length === 0) {
                     resultDiv.classList.add('hidden');
