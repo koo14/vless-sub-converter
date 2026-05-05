@@ -104,6 +104,10 @@ async function processSubscription(url: string, targetList: string): Promise<str
           const hashIndex = rest.indexOf('#');
           let newRest = rest;
           
+          // 如果目标是 IPv6 且未被 [] 包围，则添加 []
+          const isIPv6 = target.includes(':') && !target.startsWith('[');
+          const formattedTarget = isIPv6 ? `[${target}]` : target;
+
           if (hashIndex !== -1) {
             try {
               const originalRemark = decodeURIComponent(rest.substring(hashIndex + 1));
@@ -114,7 +118,7 @@ async function processSubscription(url: string, targetList: string): Promise<str
           } else {
             newRest = rest + '#' + encodeURIComponent(target);
           }
-          return match[1] + target + newRest;
+          return match[1] + formattedTarget + newRest;
         });
       }
     }
