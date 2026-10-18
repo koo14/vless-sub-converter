@@ -24,6 +24,21 @@
                 <textarea id="newIp" rows="3" oninput="generate()" class="block w-full border border-gray-600 bg-gray-700 text-white rounded-md shadow-sm p-2.5 focus:ring-blue-500 focus:border-blue-500 placeholder-gray-400 outline-none resize-y" placeholder="1.1.1.1, example.com&#10;或者每行一个"></textarea>
                 <p id="errorMsg" class="mt-2 text-xs text-red-400 hidden"></p>
             </div>
+            <div>
+                <div class="flex items-center justify-between mb-1">
+                    <label class="block text-sm font-medium text-gray-300">ALPN 覆写 (可选)</label>
+                    <span class="text-xs text-gray-400">留空则保持原配置</span>
+                </div>
+                <input type="text" id="alpn" oninput="generate()" class="block w-full border border-gray-600 bg-gray-700 text-white rounded-md shadow-sm p-2.5 focus:ring-blue-500 focus:border-blue-500 placeholder-gray-400 outline-none" placeholder="例如: h3 或 h3,h2 (多个用逗号分隔)">
+                <div class="flex flex-wrap gap-2 mt-2">
+                    <button type="button" onclick="setAlpnPreset('h3')" class="text-xs bg-gray-700 hover:bg-gray-600 text-gray-300 px-2.5 py-1 rounded transition border border-gray-600">h3</button>
+                    <button type="button" onclick="setAlpnPreset('h2')" class="text-xs bg-gray-700 hover:bg-gray-600 text-gray-300 px-2.5 py-1 rounded transition border border-gray-600">h2</button>
+                    <button type="button" onclick="setAlpnPreset('h3,h2')" class="text-xs bg-gray-700 hover:bg-gray-600 text-gray-300 px-2.5 py-1 rounded transition border border-gray-600">h3,h2</button>
+                    <button type="button" onclick="setAlpnPreset('http/1.1')" class="text-xs bg-gray-700 hover:bg-gray-600 text-gray-300 px-2.5 py-1 rounded transition border border-gray-600">http/1.1</button>
+                    <button type="button" onclick="setAlpnPreset('h2,http/1.1')" class="text-xs bg-gray-700 hover:bg-gray-600 text-gray-300 px-2.5 py-1 rounded transition border border-gray-600">h2,http/1.1</button>
+                    <button type="button" onclick="setAlpnPreset('')" class="text-xs bg-gray-700 hover:bg-gray-600 text-gray-400 px-2.5 py-1 rounded transition border border-gray-600">清空</button>
+                </div>
+            </div>
         </div>
 
         <div id="result" class="mt-8 hidden">
@@ -55,10 +70,17 @@
         document.addEventListener('DOMContentLoaded', () => {
             const savedUrl = getCookie('subUrl');
             const savedIps = getCookie('newIp');
+            const savedAlpn = getCookie('alpn');
             if (savedUrl) document.getElementById('subUrl').value = savedUrl;
             if (savedIps) document.getElementById('newIp').value = savedIps;
+            if (savedAlpn) document.getElementById('alpn').value = savedAlpn;
             if (savedUrl || savedIps) generate();
         });
+
+        function setAlpnPreset(val) {
+            document.getElementById('alpn').value = val;
+            generate();
+        }
 
         function isValid(str) {
             const ipRegex = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
@@ -70,6 +92,7 @@
         async function generate() {
             const subUrl = document.getElementById('subUrl').value.trim();
             const ip = document.getElementById('newIp').value.trim();
+            const alpn = document.getElementById('alpn').value.trim();
             const resultDiv = document.getElementById('result');
             const errorMsg = document.getElementById('errorMsg');
             
@@ -82,6 +105,7 @@
             // 保存用户的输入到 Cookie，有效期 180 天
             setCookie('subUrl', subUrl, 180);
             setCookie('newIp', ip, 180);
+            setCookie('alpn', alpn, 180);
 
             try {
                 const rawList = ip.split(/[,\n]/).map(i => i.trim()).filter(Boolean);
@@ -110,7 +134,14 @@
                 }
 
                 const linksContainer = document.getElementById('linksContainer');
-                const unifiedUrl = window.location.origin + '/sub?url=' + encodeURIComponent(subUrl) + '&ips=' + encodeURIComponent(validList.join(','));
+                let unifiedUrl = window.location.origin + '/sub?url=' + encodeURIComponent(subUrl) + '&ips=' + encodeURIComponent(validList.join(','));
+                
+                if (alpn) {
+                    const cleanedAlpn = alpn.split(',').map(s => s.trim()).filter(Boolean).join(',');
+                    if (cleanedAlpn) {
+                        unifiedUrl += '&alpn=' + encodeURIComponent(cleanedAlpn);
+                    }
+                }
                 
                 linksContainer.innerHTML = createLinkHTML('🎉 您的二次订阅链接：', unifiedUrl, 'unified');
                 resultDiv.classList.remove('hidden');
