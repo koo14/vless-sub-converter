@@ -1,4 +1,4 @@
-name = "vless-sub-converter"
+name = "esub"
 main = "src/index.ts"
 compatibility_date = "2026-04-21"
 
