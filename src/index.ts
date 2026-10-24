@@ -124,10 +124,68 @@ async function processSubscription(url: string, targetList: string, overrideAlpn
 }
 
 /**
+ * 目标地址解析结果结构
+ */
+interface ParsedTarget {
+  formattedHost: string;
+  port?: string;
+}
+
+/**
+ * 解析目标地址字符串，分离出主机（Host）与可选端口（Port）
+ *
+ * @param target 目标 IP/域名，可能包含端口，如 123.xyz:443、1.1.1.1、[2606::1]:8443
+ * @returns 包含格式化主机名与可选端口的对象
+ */
+function parseTarget(target: string): ParsedTarget {
+  const trimmed = target.trim();
+  let host = trimmed;
+  let port: string | undefined = undefined;
+
+  if (trimmed.startsWith('[')) {
+    const closingIndex = trimmed.indexOf(']');
+    if (closingIndex !== -1) {
+      const rawHost = trimmed.substring(1, closingIndex);
+      host = `[${rawHost}]`;
+      const afterBracket = trimmed.substring(closingIndex + 1);
+      if (afterBracket.startsWith(':')) {
+        const candidatePort = afterBracket.substring(1);
+        if (/^\d+$/.test(candidatePort)) {
+          const portNum = Number(candidatePort);
+          if (portNum >= 1 && portNum <= 65535) {
+            port = candidatePort;
+          }
+        }
+      }
+    }
+  } else {
+    // 统计冒号数量：若有且仅有 1 个冒号，说明为 host:port
+    // 若有多个冒号且未被中括号包围，说明为裸 IPv6 地址
+    const colons = (trimmed.match(/:/g) || []).length;
+    if (colons === 1) {
+      const colonIndex = trimmed.indexOf(':');
+      host = trimmed.substring(0, colonIndex);
+      const candidatePort = trimmed.substring(colonIndex + 1);
+      if (/^\d+$/.test(candidatePort)) {
+        const portNum = Number(candidatePort);
+        if (portNum >= 1 && portNum <= 65535) {
+          port = candidatePort;
+        }
+      }
+    } else if (colons > 1) {
+      // 裸 IPv6 统一加上中括号
+      host = `[${trimmed}]`;
+    }
+  }
+
+  return { formattedHost: host, port };
+}
+
+/**
  * 针对单个 VLESS 节点链接，覆写其目标地址、ALPN 配置并更新备注信息
  *
  * @param line 原始 VLESS 节点链接 (如 vless://uuid@host:port?query#remark)
- * @param target 优选的目标 IP 或域名
+ * @param target 优选的目标 IP 或域名 (可包含端口，如 123.xyz:443)
  * @param overrideAlpn 可选的已清洗 ALPN 覆写值 (如 "h3" 或 "h3,h2")
  * @returns 覆写修改后的 VLESS 节点链接，若格式不匹配则返回原链接
  */
@@ -143,23 +201,26 @@ function modifyVlessNode(line: string, target: string, overrideAlpn?: string): s
 
   const hashIndex = rest.indexOf('#');
   const beforeHash = hashIndex !== -1 ? rest.substring(0, hashIndex) : rest;
-  let newBeforeHash = beforeHash;
 
-  // 若提供了 ALPN 覆写参数，更新或插入 query 中的 alpn 字段
+  const { formattedHost, port: targetPort } = parseTarget(target);
+
+  const qIndex = beforeHash.indexOf('?');
+  const originalPortPart = qIndex !== -1 ? beforeHash.substring(0, qIndex) : beforeHash;
+  const queryPart = qIndex !== -1 ? beforeHash.substring(qIndex + 1) : '';
+
+  // 若 target 中包含端口，则覆写端口；否则保留原节点端口
+  const effectivePortPart = targetPort ? `:${targetPort}` : originalPortPart;
+
+  let newBeforeHash: string;
   if (overrideAlpn) {
-    const qIndex = beforeHash.indexOf('?');
-    const portPart = qIndex !== -1 ? beforeHash.substring(0, qIndex) : beforeHash;
-    const queryPart = qIndex !== -1 ? beforeHash.substring(qIndex + 1) : '';
     const searchParams = new URLSearchParams(queryPart);
     searchParams.set('alpn', overrideAlpn);
-    newBeforeHash = `${portPart}?${searchParams.toString()}`;
+    newBeforeHash = `${effectivePortPart}?${searchParams.toString()}`;
+  } else {
+    newBeforeHash = queryPart ? `${effectivePortPart}?${queryPart}` : effectivePortPart;
   }
 
-  // 格式化 IPv6 目标地址 (添加中括号)
-  const isIPv6 = target.includes(':') && !target.startsWith('[');
-  const formattedTarget = isIPv6 ? `[${target}]` : target;
-
-  // 更新节点备注后缀以区分优选 IP
+  // 更新节点备注后缀以区分优选 IP / 地址
   let newRest: string;
   if (hashIndex !== -1) {
     try {
@@ -173,7 +234,7 @@ function modifyVlessNode(line: string, target: string, overrideAlpn?: string): s
     newRest = `${newBeforeHash}#${encodeURIComponent(target)}`;
   }
 
-  return `${prefix}${formattedTarget}${newRest}`;
+  return `${prefix}${formattedHost}${newRest}`;
 }
 
 // 高性能且类型安全的 UTF-8 Base64 解码
