@@ -39,6 +39,17 @@
                     <button type="button" onclick="setAlpnPreset('')" class="text-xs bg-gray-700 hover:bg-gray-600 text-gray-400 px-2.5 py-1 rounded transition border border-gray-600">清空</button>
                 </div>
             </div>
+            <div>
+                <div class="flex items-center justify-between mb-1">
+                    <label for="clientFormat" class="block text-sm font-medium text-gray-300">客户端输出格式</label>
+                    <span class="text-xs text-gray-400">默认透传 UA 并自动识别</span>
+                </div>
+                <select id="clientFormat" onchange="generate()" class="block w-full border border-gray-600 bg-gray-700 text-white rounded-md shadow-sm p-2.5 focus:ring-blue-500 focus:border-blue-500 outline-none">
+                    <option value="auto">自动识别 (根据客户端 UA 自动适配)</option>
+                    <option value="shadowrocket">Shadowrocket (小火箭原生格式，适配 XHTTP/XMUX)</option>
+                    <option value="standard">标准 VLESS 格式 (v2rayN / v2rayNG / Happ / Xray 等)</option>
+                </select>
+            </div>
         </div>
 
         <div id="result" class="mt-8 hidden">
@@ -71,9 +82,11 @@
             const savedUrl = getCookie('subUrl');
             const savedIps = getCookie('newIp');
             const savedAlpn = getCookie('alpn');
+            const savedClient = getCookie('clientFormat');
             if (savedUrl) document.getElementById('subUrl').value = savedUrl;
             if (savedIps) document.getElementById('newIp').value = savedIps;
             if (savedAlpn) document.getElementById('alpn').value = savedAlpn;
+            if (savedClient) document.getElementById('clientFormat').value = savedClient;
             if (savedUrl || savedIps) generate();
         });
 
@@ -135,6 +148,7 @@
             const subUrl = document.getElementById('subUrl').value.trim();
             const ip = document.getElementById('newIp').value.trim();
             const alpn = document.getElementById('alpn').value.trim();
+            const clientFormat = document.getElementById('clientFormat').value || 'auto';
             const resultDiv = document.getElementById('result');
             const errorMsg = document.getElementById('errorMsg');
             
@@ -148,6 +162,7 @@
             setCookie('subUrl', subUrl, 180);
             setCookie('newIp', ip, 180);
             setCookie('alpn', alpn, 180);
+            setCookie('clientFormat', clientFormat, 180);
 
             try {
                 const rawList = ip.split(/[,\n]/).map(i => i.trim()).filter(Boolean);
@@ -183,6 +198,10 @@
                     if (cleanedAlpn) {
                         unifiedUrl += '&alpn=' + encodeURIComponent(cleanedAlpn);
                     }
+                }
+
+                if (clientFormat && clientFormat !== 'auto') {
+                    unifiedUrl += '&client=' + encodeURIComponent(clientFormat);
                 }
                 
                 linksContainer.innerHTML = createLinkHTML('🎉 您的二次订阅链接：', unifiedUrl, 'unified');
